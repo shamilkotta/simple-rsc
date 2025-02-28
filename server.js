@@ -41,10 +41,11 @@ app.get('/', async (c) => {
 app.get('/rsc', async (c) => {
 	// Note This will raise a type error until you build with `npm run dev`
 	const Page = await import('./build/page.js');
+	const manifest = JSON.parse(await readFile(resolveBuild('manifest.json'), 'utf-8'));
 	// @ts-expect-error `Type '() => Promise<any>' is not assignable to type 'FunctionComponent<{}>'`
 	const Comp = createElement(Page.default);
 
-	const stream = ReactServerDom.renderToReadableStream(Comp, clientComponentMap);
+	const stream = ReactServerDom.renderToReadableStream(Comp, manifest);
 	return new Response(stream);
 });
 
@@ -115,7 +116,7 @@ async function build() {
 			// Create a unique lookup key for each exported component.
 			// Could be any identifier!
 			// We'll choose the file path + export name for simplicity.
-			const key = file.path + exp.n;
+			const key = file.path;
 
 			clientComponentMap[key] = {
 				// Have the browser import your component from your server
@@ -141,6 +142,7 @@ ${exp.ln}.$$typeof = Symbol.for("react.client.reference");
 		}
 		await writeFile(file.path, newContents);
 	});
+	await writeFile(resolveBuild('manifest.json'), JSON.stringify(clientComponentMap));
 }
 
 serve(app, async (info) => {
